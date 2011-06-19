@@ -85,11 +85,55 @@ class WikiRevision:
 		return timeString
 		
 
-del_test = re.compile(r'The following discussion is an archived debate of the proposed deletion of the article below')
+
 
 archive = WikiArchive()
 for event, element in etree.iterparse('AprilAFD.xml', tag = xmlns + 'page'):
 	currentPage = WikiPage(element[0].text)
+	#These lines test for deletion or retention of the page. They are a terrible kludge, but they work... code reusers probably don't want these unless they are testing AfD pages (it looks for a pattern specific to them)
+	speedyd_test = re.compile('The result was[^\']*[\']{3,3}(S|s)(P|p)(E|e)(E|e)(D|d)(Y|y) (D|d)(E|e)(L|l)(E|e)(T|t)[\']*')	
+	speedyd = speedyd_test.search(element[-1][-1].text)	
+	del_test = re.compile('The result was[^\']*[\']{3,3}(D|d)(E|e)(L|l)(E|e)(T|t)(E|e)[\']*')	
+	gone = del_test.search(element[-1][-1].text)
+	merge_test = re.compile('The result was[^\']*[\']{3,3}[^\']*(M|m)(E|e)(R|r)(G|g)(E|e)[^\']*[\']{3,3}')
+	merged = merge_test.search(element[-1][-1].text)
+	withdrawn_test = re.compile('The result was[^\']*[\']{3,3}[^\']*(W|w)(I|i)(T|t)(H|h)(D|d)(R|r)(A|a)(W|w)[^\']*[\']{3,3}')
+	withdrawn = withdrawn_test.search(element[-1][-1].text)	
+	keep_test = re.compile('The result was[^\']*[\']{3,3}[^\']*(K|k)(E|e)(E|e|P|p)(P|p|T|t)[^\']*[\']{3,3}')
+	retain = keep_test.search(element[-1][-1].text)	
+	no_consensus_test = re.compile('The result was[^\']*[\']{3,3}(N|n)(O|o) (C|c)(O|o)(N|n)(S|s)(E|e)(N|n)(S|s)(U|u)(S|s)[\']*')	
+	no_consensus = no_consensus_test.search(element[-1][-1].text)	
+	redirect_test =	re.compile('The result was[^\']*[\']{3,3}[^\']*(R|r)(E|e)(D|d)(I|i)(R|r)(E|e)(C|c)(T|t)[^\']*[\']{3,3}')
+	redirected = redirect_test.search(element[-1][-1].text)
+	catch_all_test = re.compile('The result was[^\']*[\']{3,3}[^\']*[\']*')		
+	n = catch_all_test.search(element[-1][-1].text)		
+	if gone:
+		currentPage.codes.append(gone.group())
+		currentPage.codes.append("Deleted")
+	elif speedyd: 
+		currentPage.codes.append(speedyd.group())
+		currentPage.codes.append("Speedy Deleted")
+	elif merged: 	
+		currentPage.codes.append(merged.group())
+		currentPage.codes.append("Merged")
+	elif retain: 
+		currentPage.codes.append(retain.group())
+		currentPage.codes.append("Kept")
+	elif no_consensus:	
+		currentPage.codes.append(no_consensus.group())
+		currentPage.codes.append("No Consensus")
+	elif redirected:
+		currentPage.codes.append(redirected.group())
+		currentPage.codes.append("Redirected")
+	elif withdrawn:
+		currentPage.codes.append(withdrawn.group())
+		currentPage.codes.append("Withdrawn")
+	elif n:	
+		currentPage.codes.append(n.group())
+		currentPage.codes.append("No string match")
+	else:
+		currentPage.codes.append(element[-1][-1].text)
+		currentPage.codes.append("Cant find")	
 	for line in element:					
 		if line.tag == xmlns + 'revision':					
 			currentRevision = WikiRevision(currentPage.title)
@@ -116,13 +160,15 @@ for event, element in etree.iterparse('AprilAFD.xml', tag = xmlns + 'page'):
 	element.clear()
 
 
-#outfile.write("total pages = " + str(archive.pageCount) + '\n')
-#for page in archive.pageList.itervalues():
-#	outfile.write(page.title + ' with ' + str(page.revisionCount) + 'revisions and ' + str(page.ReturnContribCount()) + 'contributors' + '\n')	
-#	contribs = page.ReturnContribList()
-#	for element in contribs.items(): 
-#		outfile.write("  " + element[0].encode('utf-8') + ":" + str(element[1]) + '\n')	
-#	outfile.write('---\n')	
+outfile.write("page title,revision count,contributor count,status\n")
+for page in archive.pageList.itervalues():
+	if page.codes[1] == "No string match":	
+		outfile.write(page.title + ',' + str(page.revisionCount) + ',' + str(page.ReturnContribCount()) + ',' + page.codes[0].encode('utf-8') + '\n')
+	#outfile.write("STATUS: " + page.codes[1].encode('utf-8') + " string found " + page.codes[0].encode('utf-8') + '\n')	
+	#contribs = page.ReturnContribList()
+	#for element in contribs.items(): 
+	#	outfile.write("  " + element[0].encode('utf-8') + ":" + str(element[1]) + '\n')	
+	#outfile.write('---\n')	
 #for test in holdlist:
 #	outfile.write(test.encode('utf-8'))
 
@@ -143,8 +189,8 @@ for event, element in etree.iterparse('AprilAFD.xml', tag = xmlns + 'page'):
 #for page in top_pages:
 #	outfile.write(page.title + '\t' + str(page.revisionCount) + '\n')
 #outfile.write("\nPages with most contributors:\n")
-top_pages = archive.TopPages("contribs", 200)
-for page in top_pages:
-	outfile.write(page.title + '\t' + str(page.ReturnContribCount()) + '\n')
-throwaway = raw_input("Wait to see if memory is really clear")
-print throwaway	
+#top_pages = archive.TopPages("contribs", 200)
+#for page in top_pages:
+#	outfile.write(page.title + '\t' + str(page.ReturnContribCount()) + '\n')
+#throwaway = raw_input("Wait to see if memory is really clear")
+#print throwaway	
